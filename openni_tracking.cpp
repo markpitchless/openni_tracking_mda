@@ -570,7 +570,17 @@ public:
           ref_cloud = segmented_cloud_;
           RefCloudPtr nonzero_ref (new RefCloud);
           removeZeroPoints (ref_cloud, *nonzero_ref);
-          
+
+//          std::string savefile = "nonzero_ref.pcd";
+//          PCL_INFO ("saving ref cloud\n");
+//          pcl::io::savePCDFileASCII(savefile, *nonzero_ref);
+
+//          PCL_INFO ("loading ref cloud\n");
+//          if ( pcl::io::loadPCDFile<RefPointType>(savefile, *nonzero_ref) == -1) {
+//        	  std::string msg = "Failed to read file: " + savefile + "\n";
+//        	  PCL_ERROR(msg.c_str());
+//          }
+
           PCL_INFO ("calculating cog\n");
           
           RefCloudPtr transed_ref (new RefCloud);
