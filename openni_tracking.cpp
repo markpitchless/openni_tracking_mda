@@ -548,12 +548,6 @@ class OpenNISegmentTracking
           RefCloudPtr nonzero_ref (new RefCloud);
           removeZeroPoints (ref_cloud, *nonzero_ref);
 
-//          PCL_INFO ("loading ref cloud\n");
-//          if ( pcl::io::loadPCDFile<RefPointType>(savefile, *nonzero_ref) == -1) {
-//        	  std::string msg = "Failed to read file: " + savefile + "\n";
-//        	  PCL_ERROR(msg.c_str());
-//          }
-
           std::cout << "ref_cloud: "
               << " points: " << ref_cloud->points.size()
               << " wh:" << ref_cloud->width << "x" << ref_cloud->height
@@ -596,6 +590,19 @@ class OpenNISegmentTracking
         tracker_->setTrans (trans);
         reference_ = transed_ref;
         tracker_->setMinIndices (ref_cloud->points.size () / 2);
+    }
+
+    void loadTrackCloud() { loadTrackCloud(reference_filename_); }
+    void loadTrackCloud(const std::string &filename)
+    {
+      PCL_INFO (("loading ref cloud:" + filename + "\n").c_str());
+      RefCloudPtr ref_cloud (new RefCloud);
+      if ( pcl::io::loadPCDFile<RefPointType>(filename, *ref_cloud) == -1) {
+        std::string msg = "Failed to read file: " + filename + "\n";
+        PCL_ERROR(msg.c_str());
+        return;
+      }
+      trackCloud(ref_cloud);
     }
 
     void cloud_cb (const CloudConstPtr &cloud)
@@ -701,6 +708,7 @@ int main (int argc, char** argv)
   bool visualize_particles = true;
   bool use_fixed = false;
   bool save = false;
+  bool load = false;
 
   double downsampling_grid_size = 0.01;
 
@@ -708,6 +716,7 @@ int main (int argc, char** argv)
   if (pcl::console::find_argument (argc, argv, "-D") > 0) visualize_non_downsample = true;
   if (pcl::console::find_argument (argc, argv, "-P") > 0) visualize_particles = false;
   if (pcl::console::find_argument (argc, argv, "-fixed") > 0) use_fixed = true;
+  if (pcl::console::find_argument (argc, argv, "--load") > 0) load = true;
   if (pcl::console::find_argument (argc, argv, "--save") > 0) save = true;
   pcl::console::parse_argument (argc, argv, "-d", downsampling_grid_size);
   if (argc < 2)
@@ -728,7 +737,13 @@ int main (int argc, char** argv)
   // open kinect
   OpenNISegmentTracking<pcl::PointXYZRGBA> v (device_id, 8, downsampling_grid_size, use_convex_hull,
       visualize_non_downsample, visualize_particles, use_fixed);
-  v.save_reference_ = save;
+  if (load)
+  {
+    v.loadTrackCloud();
+    v.counter_ = 11;
+  }
+  else
+    v.save_reference_ = save;
   v.run ();
 }
 
