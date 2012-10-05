@@ -555,26 +555,43 @@ class OpenNISegmentTracking
 //        	  PCL_ERROR(msg.c_str());
 //          }
 
-          PCL_INFO("calculating cog\n");
+          std::cout << "ref_cloud: "
+              << " points: " << ref_cloud->points.size()
+              << " wh:" << ref_cloud->width << "x" << ref_cloud->height
+              << " is_dense: " << (ref_cloud->is_dense ? "Yes" : "No")
+              << std::endl;
+          std::cout << "nonzero: "
+              << " points: " << nonzero_ref->points.size()
+              << " wh:" << nonzero_ref->width << "x" << nonzero_ref->height
+              << " is_dense: " << (nonzero_ref->is_dense ? "Yes" : "No")
+              << std::endl;
 
-          RefCloudPtr transed_ref (new RefCloud);
-          pcl::compute3DCentroid<RefPointType> (*nonzero_ref, c);
-          Eigen::Affine3f trans = Eigen::Affine3f::Identity ();
-          trans.translation () = Eigen::Vector3f (c[0], c[1], c[2]);
-          //pcl::transformPointCloudWithNormals<RefPointType> (*ref_cloud, *transed_ref, trans.inverse());
-          pcl::transformPointCloud<RefPointType> (*nonzero_ref, *transed_ref, trans.inverse ());
-          CloudPtr transed_ref_downsampled (new Cloud);
-          gridSample (transed_ref, *transed_ref_downsampled, downsampling_grid_size_);
-          tracker_->setReferenceCloud (transed_ref_downsampled);
-          tracker_->setTrans (trans);
-          reference_ = transed_ref;
-          tracker_->setMinIndices (ref_cloud->points.size () / 2);
+          trackCloud(nonzero_ref);
         }
         else
         {
           PCL_WARN("euclidean segmentation failed\n");
         }
       }
+    }
+
+    void trackCloud (const RefCloudConstPtr &ref_cloud)
+    {
+        PCL_INFO("calculating cog\n");
+
+        Eigen::Vector4f c;
+        RefCloudPtr transed_ref (new RefCloud);
+        pcl::compute3DCentroid<RefPointType> (*ref_cloud, c);
+        Eigen::Affine3f trans = Eigen::Affine3f::Identity ();
+        trans.translation () = Eigen::Vector3f (c[0], c[1], c[2]);
+        //pcl::transformPointCloudWithNormals<RefPointType> (*ref_cloud, *transed_ref, trans.inverse());
+        pcl::transformPointCloud<RefPointType> (*ref_cloud, *transed_ref, trans.inverse ());
+        CloudPtr transed_ref_downsampled (new Cloud);
+        gridSample (transed_ref, *transed_ref_downsampled, downsampling_grid_size_);
+        tracker_->setReferenceCloud (transed_ref_downsampled);
+        tracker_->setTrans (trans);
+        reference_ = transed_ref;
+        tracker_->setMinIndices (ref_cloud->points.size () / 2);
     }
 
     void cloud_cb (const CloudConstPtr &cloud)
