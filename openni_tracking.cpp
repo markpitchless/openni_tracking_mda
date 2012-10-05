@@ -166,6 +166,9 @@ class OpenNISegmentTracking
       coherence->setSearchMethod (search);
       coherence->setMaximumDistance (0.01);
       tracker_->setCloudCoherence (coherence);
+
+      save_reference_ = false;
+      reference_filename_ = "reference.pcd";
     }
 
     bool drawParticles (pcl::visualization::PCLVisualizer& viz)
@@ -545,10 +548,6 @@ class OpenNISegmentTracking
           RefCloudPtr nonzero_ref (new RefCloud);
           removeZeroPoints (ref_cloud, *nonzero_ref);
 
-//          std::string savefile = "nonzero_ref.pcd";
-//          PCL_INFO ("saving ref cloud\n");
-//          pcl::io::savePCDFileASCII(savefile, *nonzero_ref);
-
 //          PCL_INFO ("loading ref cloud\n");
 //          if ( pcl::io::loadPCDFile<RefPointType>(savefile, *nonzero_ref) == -1) {
 //        	  std::string msg = "Failed to read file: " + savefile + "\n";
@@ -565,6 +564,11 @@ class OpenNISegmentTracking
               << " wh:" << nonzero_ref->width << "x" << nonzero_ref->height
               << " is_dense: " << (nonzero_ref->is_dense ? "Yes" : "No")
               << std::endl;
+
+          if (save_reference_) {
+            PCL_INFO (("saving ref cloud: " + reference_filename_ + "\n").c_str());
+            pcl::io::savePCDFileASCII(reference_filename_, *nonzero_ref);
+          }
 
           trackCloud(nonzero_ref);
         }
@@ -675,6 +679,8 @@ class OpenNISegmentTracking
     double computation_time_;
     double downsampling_time_;
     double downsampling_grid_size_;
+    bool save_reference_;
+    std::string reference_filename_;
 };
 
 void usage (char** argv)
@@ -694,6 +700,7 @@ int main (int argc, char** argv)
   bool visualize_non_downsample = false;
   bool visualize_particles = true;
   bool use_fixed = false;
+  bool save = false;
 
   double downsampling_grid_size = 0.01;
 
@@ -701,6 +708,7 @@ int main (int argc, char** argv)
   if (pcl::console::find_argument (argc, argv, "-D") > 0) visualize_non_downsample = true;
   if (pcl::console::find_argument (argc, argv, "-P") > 0) visualize_particles = false;
   if (pcl::console::find_argument (argc, argv, "-fixed") > 0) use_fixed = true;
+  if (pcl::console::find_argument (argc, argv, "--save") > 0) save = true;
   pcl::console::parse_argument (argc, argv, "-d", downsampling_grid_size);
   if (argc < 2)
   {
@@ -716,9 +724,11 @@ int main (int argc, char** argv)
     exit (1);
   }
 
+
   // open kinect
   OpenNISegmentTracking<pcl::PointXYZRGBA> v (device_id, 8, downsampling_grid_size, use_convex_hull,
       visualize_non_downsample, visualize_particles, use_fixed);
+  v.save_reference_ = save;
   v.run ();
 }
 
