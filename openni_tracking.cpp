@@ -168,7 +168,9 @@ class OpenNISegmentTracking
       tracker_->setCloudCoherence (coherence);
 
       save_reference_ = false;
+      load_reference_ = false;
       reference_filename_ = "reference.pcd";
+      startup_ = 0;
     }
 
     bool drawParticles (pcl::visualization::PCLVisualizer& viz)
@@ -615,9 +617,16 @@ class OpenNISegmentTracking
       pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients ());
       pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
       filterPassThrough (cloud, *cloud_pass_);
+
       if (counter_ < 10)
       {
         gridSample (cloud_pass_, *cloud_pass_downsampled_, downsampling_grid_size_);
+      }
+      else if (load_reference_)
+      {
+        loadTrackCloud();
+        counter_ = 10; // will also get ++ at end of method
+        load_reference_ = false;
       }
       else if (counter_ == 10)
       {
@@ -687,7 +696,9 @@ class OpenNISegmentTracking
     double downsampling_time_;
     double downsampling_grid_size_;
     bool save_reference_;
+    bool load_reference_;
     std::string reference_filename_;
+    int startup_;
 };
 
 void usage (char** argv)
@@ -737,13 +748,8 @@ int main (int argc, char** argv)
   // open kinect
   OpenNISegmentTracking<pcl::PointXYZRGBA> v (device_id, 8, downsampling_grid_size, use_convex_hull,
       visualize_non_downsample, visualize_particles, use_fixed);
-  if (load)
-  {
-    v.loadTrackCloud();
-    v.counter_ = 11;
-  }
-  else
-    v.save_reference_ = save;
+  v.save_reference_ = save;
+  v.load_reference_ = load;
   v.run ();
 }
 
