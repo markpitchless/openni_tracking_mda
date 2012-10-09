@@ -760,17 +760,17 @@ class OpenNISegmentTracking
       euclideanSegment (target_cloud, cluster_indices);
       if (cluster_indices.size () > 0)
       {
-        // select the cluster to track
-        CloudPtr temp_cloud (new Cloud);
-        extractSegmentCluster (target_cloud, cluster_indices, 0, *temp_cloud);
+        CloudPtr temp_cloud;
         Eigen::Vector4f c;
-        pcl::compute3DCentroid<RefPointType> (*temp_cloud, c);
         int segment_index = 0;
-        double segment_distance = c[0] * c[0] + c[1] * c[1];
-        for (size_t i = 1; i < cluster_indices.size (); i++)
+        double segment_distance = 100000.0;
+        for (size_t i = 0; i < cluster_indices.size (); i++)
         {
           temp_cloud.reset (new Cloud);
           extractSegmentCluster (target_cloud, cluster_indices, i, *temp_cloud);
+          std::stringstream filename;
+          filename << "segment_cluster_" << i << ".pcd";
+          pcl::io::savePCDFileASCII(filename.str(), *temp_cloud);
           pcl::compute3DCentroid<RefPointType> (*temp_cloud, c);
           double distance = c[0] * c[0] + c[1] * c[1];
           if (distance < segment_distance)
