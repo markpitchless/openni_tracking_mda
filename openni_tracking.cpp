@@ -746,11 +746,11 @@ class OpenNISegmentTracking
     }
 
     /**
-     * Segment the target cloud into clusters and set result to the nearest one.
+     * Segment the target_cloud into clusters, pushing each cluster onto the results vector.
      */
-    void segmentNearestCluster(CloudPtr &target_cloud, CloudPtr &result)
+    void segmentClusters(CloudPtr &target_cloud, std::vector<CloudPtr> &results)
     {
-      PCL_INFO("segmentation, please wait...\n");
+      PCL_INFO("segmenting clusters...\n");
 
       std::vector<pcl::PointIndices> cluster_indices;
       euclideanSegment (target_cloud, cluster_indices);
@@ -758,23 +758,34 @@ class OpenNISegmentTracking
         return;
 
       CloudPtr temp_cloud;
-      Eigen::Vector4f c;
-      int segment_index = 0;
-      double segment_distance = 100000.0; // dummy val to start loop
       for (size_t i = 0; i < cluster_indices.size (); i++)
       {
         temp_cloud.reset (new Cloud);
         extractSegmentCluster (target_cloud, cluster_indices, i, *temp_cloud);
+        results.push_back(temp_cloud);
         std::stringstream filename;
         filename << "segment_cluster_" << i << ".pcd";
         pcl::io::savePCDFileASCII(filename.str(), *temp_cloud);
-        pcl::compute3DCentroid<RefPointType> (*temp_cloud, c);
+      }
+    }
+
+    void findNearestCluster(CloudPtr &target_cloud, CloudPtr &result)
+    {
+      std::vector<CloudPtr> clusters;
+      segmentClusters(target_cloud, clusters);
+
+      PCL_INFO("find nearest cluster...\n");
+      Eigen::Vector4f c;
+      double segment_distance = 100000.0; // dummy val to start loop
+      for (size_t i = 0; i < clusters.size (); ++i)
+      {
+        CloudPtr cluster = clusters[i];
+        pcl::compute3DCentroid<RefPointType> (*cluster, c);
         double distance = c[0] * c[0] + c[1] * c[1];
         if (distance < segment_distance)
         {
-          segment_index = i;
           segment_distance = distance;
-          result = temp_cloud;
+          result = cluster;
         }
       }
     }
@@ -789,13 +800,9 @@ class OpenNISegmentTracking
         return;
       }
 
+      // If this fails we get an empty ref_cloud
       CloudPtr ref_cloud (new Cloud);
-      segmentNearestCluster(target_cloud, ref_cloud);
-      if (!ref_cloud)
-      {
-        PCL_WARN("cluster extraction failed\n");
-        return;
-      }
+      findNearestCluster(target_cloud, ref_cloud);
 
       std::cout << "ref_cloud: "
           << " points: " << ref_cloud->points.size()
