@@ -789,39 +789,26 @@ class OpenNISegmentTracking
         return;
       }
 
-      segmented_cloud_.reset (new Cloud);
-      segmentNearestCluster(target_cloud, segmented_cloud_);
-      if (!segmented_cloud_)
+      CloudPtr ref_cloud (new Cloud);
+      segmentNearestCluster(target_cloud, ref_cloud);
+      if (!ref_cloud)
       {
         PCL_WARN("cluster extraction failed\n");
         return;
       }
-
-      //pcl::PointCloud<pcl::Normal>::Ptr normals (new pcl::PointCloud<pcl::Normal>);
-      //normalEstimation (segmented_cloud_, *normals);
-      RefCloudPtr ref_cloud (new RefCloud);
-      //addNormalToCloud (segmented_cloud_, normals, *ref_cloud);
-      ref_cloud = segmented_cloud_;
-      RefCloudPtr nonzero_ref (new RefCloud);
-      removeZeroPoints (ref_cloud, *nonzero_ref);
 
       std::cout << "ref_cloud: "
           << " points: " << ref_cloud->points.size()
           << " wh:" << ref_cloud->width << "x" << ref_cloud->height
           << " is_dense: " << (ref_cloud->is_dense ? "Yes" : "No")
           << std::endl;
-      std::cout << "nonzero: "
-          << " points: " << nonzero_ref->points.size()
-          << " wh:" << nonzero_ref->width << "x" << nonzero_ref->height
-          << " is_dense: " << (nonzero_ref->is_dense ? "Yes" : "No")
-          << std::endl;
 
       if (save_reference_) {
         PCL_INFO (("saving ref cloud: " + reference_filename_ + "\n").c_str());
-        pcl::io::savePCDFileASCII(reference_filename_, *nonzero_ref);
+        pcl::io::savePCDFileASCII(reference_filename_, *ref_cloud);
       }
 
-      trackCloud(nonzero_ref);
+      trackCloud(ref_cloud);
     }
 
     void trackCloud (const RefCloudConstPtr &ref_cloud)
@@ -1032,7 +1019,6 @@ class OpenNISegmentTracking
     CloudPtr plane_cloud_;
     CloudPtr nonplane_cloud_;
     CloudPtr cloud_hull_;
-    CloudPtr segmented_cloud_;
     CloudPtr reference_;
     std::vector<pcl::Vertices> hull_vertices_;
 
