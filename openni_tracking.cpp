@@ -707,8 +707,10 @@ class OpenNISegmentTracking
       result.is_dense = true;
     }
 
-    void segment (pcl::ModelCoefficients::Ptr coefficients, pcl::PointIndices::Ptr inliers)
+    void segment ()
     {
+      pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients ());
+      pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
 
       //gridSample (cloud_pass_, *cloud_pass_downsampled_, 0.01);
       cloud_pass_downsampled_ = cloud_pass_;
@@ -936,8 +938,6 @@ class OpenNISegmentTracking
       FPS_CALC_BEGIN;
       cloud_pass_.reset (new Cloud);
       cloud_pass_downsampled_.reset (new Cloud);
-      pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients ());
-      pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
       filterPassThrough (cloud, *cloud_pass_);
 
       if (counter_ < 10)
@@ -953,7 +953,7 @@ class OpenNISegmentTracking
       else if (counter_ == 10)
       {
         // Set the reference cloud and trans on the tracker
-        segment(coefficients, inliers);
+        segment();
       }
       else
       {
