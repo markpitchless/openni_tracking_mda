@@ -887,25 +887,15 @@ class OpenNISegmentTracking
         return;
       }
 
-      // Convert target cloud, current view from openni
+      // Find all the clusters. We then try to match the find cloud against each cluster.
+      std::vector<CloudPtr> clusters;
+      segmentClusters(segment_cloud, clusters);
+
       // Convert the cloud we want to find.
       // (We need PointXYZ but openni tracking is using PointXYZRGBA)
-      pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
       pcl::PointCloud<pcl::PointXYZ>::Ptr object_template (new pcl::PointCloud<pcl::PointXYZ>);
-      copyPointCloud (segment_cloud, cloud);
       copyPointCloud (find_cloud, object_template);
-      pcl::io::savePCDFileASCII("find_input_cloud.pcd", *cloud);
       pcl::io::savePCDFileASCII("find_object_template.pcd", *object_template);
-
-      // Preprocess the cloud by...
-      // ...removing distant points
-//      PCL_INFO ("...removing distant points\n");
-//      const float depth_limit = 1.0;
-//      pcl::PassThrough<pcl::PointXYZ> pass;
-//      pass.setInputCloud (cloud);
-//      pass.setFilterFieldName ("z");
-//      pass.setFilterLimits (0, depth_limit);
-//      pass.filter (*cloud);
 
       // ... and downsampling the point cloud
 //      PCL_INFO ("... and downsampling the point cloud\n");
@@ -918,10 +908,6 @@ class OpenNISegmentTracking
 //      vox_grid.filter (*tempCloud);
 //      cloud = tempCloud;
 
-      // Assign to the target FeatureCloud
-      FeatureCloud target_cloud;
-      target_cloud.setInputCloud (cloud);
-
       // Set the TemplateAlignment inputs
       TemplateAlignment template_align;
 //      for (size_t i = 0; i < object_templates.size (); ++i)
@@ -931,30 +917,44 @@ class OpenNISegmentTracking
       FeatureCloud template_cloud;
       template_cloud.setInputCloud(object_template);
       template_align.addTemplateCloud (template_cloud);
-      template_align.setTargetCloud (target_cloud);
 
-      // Find the best template alignment
-      PCL_INFO ("... find the best template alignment\n");
-      TemplateAlignment::Result best_alignment;
-      int best_index = template_align.findBestAlignment (best_alignment);
-      //const FeatureCloud &best_template = object_templates[best_index];
-      const FeatureCloud &best_template = template_cloud;
+      TemplateAlignment::Result best_result;
+      best_result.fitness_score = 10000;
+      for (size_t i = 0; i < clusters.size (); ++i)
+      {
+        // Assign to the target FeatureCloud
+        // We need PointXYZ but openni tracking is using PointXYZRGBA
+        FeatureCloud target_cloud;
+        pcl::PointCloud<pcl::PointXYZ>::Ptr temp_cloud (new pcl::PointCloud<pcl::PointXYZ>);
+        copyPointCloud (clusters[i], temp_cloud);
+        target_cloud.setInputCloud (temp_cloud);
+        template_align.setTargetCloud (target_cloud);
 
-      // Print the alignment fitness score (values less than 0.00002 are good)
-      printf ("Best fitness score: %f\n", best_alignment.fitness_score);
+        // Find the best template alignment
+        PCL_INFO ("... find the best template alignment\n");
+        TemplateAlignment::Result best_alignment;
+        int best_index = template_align.findBestAlignment (best_alignment);
+        //const FeatureCloud &best_template = object_templates[best_index];
+        const FeatureCloud &best_template = template_cloud;
 
-      // Print the rotation matrix and translation vector
-      Eigen::Matrix3f rotation = best_alignment.final_transformation.block<3,3>(0, 0);
-      Eigen::Vector3f translation = best_alignment.final_transformation.block<3,1>(0, 3);
+        // Print the alignment fitness score (values less than 0.00002 are good)
+        printf ("Best fitness score: %f\n", best_alignment.fitness_score);
+        // Print the rotation matrix and translation vector
+        Eigen::Matrix3f rotation = best_alignment.final_transformation.block<3,3>(0, 0);
+        Eigen::Vector3f translation = best_alignment.final_transformation.block<3,1>(0, 3);
+        printf ("\n");
+        printf ("    | %6.3f %6.3f %6.3f | \n", rotation (0,0), rotation (0,1), rotation (0,2));
+        printf ("R = | %6.3f %6.3f %6.3f | \n", rotation (1,0), rotation (1,1), rotation (1,2));
+        printf ("    | %6.3f %6.3f %6.3f | \n", rotation (2,0), rotation (2,1), rotation (2,2));
+        printf ("\n");
+        printf ("t = < %0.3f, %0.3f, %0.3f >\n", translation (0), translation (1), translation (2));
 
-      printf ("\n");
-      printf ("    | %6.3f %6.3f %6.3f | \n", rotation (0,0), rotation (0,1), rotation (0,2));
-      printf ("R = | %6.3f %6.3f %6.3f | \n", rotation (1,0), rotation (1,1), rotation (1,2));
-      printf ("    | %6.3f %6.3f %6.3f | \n", rotation (2,0), rotation (2,1), rotation (2,2));
-      printf ("\n");
-      printf ("t = < %0.3f, %0.3f, %0.3f >\n", translation (0), translation (1), translation (2));
+        if (best_alignment.fitness_score < best_result.fitness_score)
+          best_result = best_alignment;
+      }
 
-      pcl::transformPointCloud (*find_cloud, *out_cloud, best_alignment.final_transformation);
+      printf ("Overall best fitness score: %f\n", best_result.fitness_score);
+      pcl::transformPointCloud (*find_cloud, *out_cloud, best_result.final_transformation);
     }
 
     void cloud_cb (const CloudConstPtr &cloud)
