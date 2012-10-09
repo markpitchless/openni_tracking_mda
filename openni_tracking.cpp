@@ -744,6 +744,7 @@ class OpenNISegmentTracking
       if (target_cloud != NULL)
       {
         PCL_INFO("segmentation, please wait...\n");
+        pcl::io::savePCDFileASCII("segment_target_cloud.pcd", *target_cloud);
         std::vector<pcl::PointIndices> cluster_indices;
         euclideanSegment (target_cloud, cluster_indices);
         if (cluster_indices.size () > 0)
@@ -834,9 +835,9 @@ class OpenNISegmentTracking
         return;
       }
       pcl::io::savePCDFileASCII("load_cloud.pcd", *load_cloud);
-      pcl::io::savePCDFileASCII("target_cloud.pcd", *cloud_pass_);
+      pcl::io::savePCDFileASCII("load_cloud_pass.pcd", *cloud_pass_);
       findCloud(load_cloud, ref_cloud);
-      pcl::io::savePCDFileASCII("transformed_cloud.pcd", *ref_cloud);
+      pcl::io::savePCDFileASCII("load_transformed_cloud.pcd", *ref_cloud);
       trackCloud(ref_cloud);
     }
 
