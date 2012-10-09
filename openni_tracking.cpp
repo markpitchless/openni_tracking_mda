@@ -707,14 +707,13 @@ class OpenNISegmentTracking
       result.is_dense = true;
     }
 
-    void segment ()
+    void segmentTargetCloud(CloudPtr &result)
     {
       pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients ());
       pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
 
       //gridSample (cloud_pass_, *cloud_pass_downsampled_, 0.01);
       cloud_pass_downsampled_ = cloud_pass_;
-      CloudPtr target_cloud;
       if (use_convex_hull_)
       {
         planeSegmentation (cloud_pass_downsampled_, *coefficients, *inliers);
@@ -728,7 +727,7 @@ class OpenNISegmentTracking
           convexHull (cloud_projected, *cloud_hull_, hull_vertices_);
 
           extractNonPlanePoints (cloud_pass_downsampled_, cloud_hull_, *nonplane_cloud_);
-          target_cloud = nonplane_cloud_;
+          result = nonplane_cloud_;
         }
         else
         {
@@ -738,9 +737,45 @@ class OpenNISegmentTracking
       else
       {
         PCL_WARN("without plane segmentation\n");
-        target_cloud = cloud_pass_downsampled_;
+        result = cloud_pass_downsampled_;
       }
+    }
 
+    void segment ()
+    {
+//      pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients ());
+//      pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
+//
+//      //gridSample (cloud_pass_, *cloud_pass_downsampled_, 0.01);
+//      cloud_pass_downsampled_ = cloud_pass_;
+//      CloudPtr target_cloud;
+//      if (use_convex_hull_)
+//      {
+//        planeSegmentation (cloud_pass_downsampled_, *coefficients, *inliers);
+//        if (inliers->indices.size () > 3)
+//        {
+//          CloudPtr cloud_projected (new Cloud);
+//          cloud_hull_.reset (new Cloud);
+//          nonplane_cloud_.reset (new Cloud);
+//
+//          planeProjection (cloud_pass_downsampled_, *cloud_projected, coefficients);
+//          convexHull (cloud_projected, *cloud_hull_, hull_vertices_);
+//
+//          extractNonPlanePoints (cloud_pass_downsampled_, cloud_hull_, *nonplane_cloud_);
+//          target_cloud = nonplane_cloud_;
+//        }
+//        else
+//        {
+//          PCL_WARN("cannot segment plane\n");
+//        }
+//      }
+//      else
+//      {
+//        PCL_WARN("without plane segmentation\n");
+//        target_cloud = cloud_pass_downsampled_;
+//      }
+      CloudPtr target_cloud;
+      segmentTargetCloud(target_cloud);
       if (target_cloud != NULL)
       {
         PCL_INFO("segmentation, please wait...\n");
