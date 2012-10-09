@@ -707,6 +707,9 @@ class OpenNISegmentTracking
       result.is_dense = true;
     }
 
+    /**
+     * Pull out a useful cloud to search for trackable objects in.
+     */
     void segmentTargetCloud(CloudPtr &result)
     {
       pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients ());
@@ -728,6 +731,7 @@ class OpenNISegmentTracking
 
           extractNonPlanePoints (cloud_pass_downsampled_, cloud_hull_, *nonplane_cloud_);
           result = nonplane_cloud_;
+          pcl::io::savePCDFileASCII("segment_target_cloud.pcd", *result);
         }
         else
         {
@@ -743,99 +747,66 @@ class OpenNISegmentTracking
 
     void segment ()
     {
-//      pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients ());
-//      pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
-//
-//      //gridSample (cloud_pass_, *cloud_pass_downsampled_, 0.01);
-//      cloud_pass_downsampled_ = cloud_pass_;
-//      CloudPtr target_cloud;
-//      if (use_convex_hull_)
-//      {
-//        planeSegmentation (cloud_pass_downsampled_, *coefficients, *inliers);
-//        if (inliers->indices.size () > 3)
-//        {
-//          CloudPtr cloud_projected (new Cloud);
-//          cloud_hull_.reset (new Cloud);
-//          nonplane_cloud_.reset (new Cloud);
-//
-//          planeProjection (cloud_pass_downsampled_, *cloud_projected, coefficients);
-//          convexHull (cloud_projected, *cloud_hull_, hull_vertices_);
-//
-//          extractNonPlanePoints (cloud_pass_downsampled_, cloud_hull_, *nonplane_cloud_);
-//          target_cloud = nonplane_cloud_;
-//        }
-//        else
-//        {
-//          PCL_WARN("cannot segment plane\n");
-//        }
-//      }
-//      else
-//      {
-//        PCL_WARN("without plane segmentation\n");
-//        target_cloud = cloud_pass_downsampled_;
-//      }
       CloudPtr target_cloud;
       segmentTargetCloud(target_cloud);
-      if (target_cloud != NULL)
+      if (target_cloud == NULL)
       {
-        PCL_INFO("segmentation, please wait...\n");
-        pcl::io::savePCDFileASCII("segment_target_cloud.pcd", *target_cloud);
-        std::vector<pcl::PointIndices> cluster_indices;
-        euclideanSegment (target_cloud, cluster_indices);
-        if (cluster_indices.size () > 0)
+        PCL_WARN("euclidean segmentation failed\n");
+        return;
+      }
+
+      PCL_INFO("segmentation, please wait...\n");
+      std::vector<pcl::PointIndices> cluster_indices;
+      euclideanSegment (target_cloud, cluster_indices);
+      if (cluster_indices.size () > 0)
+      {
+        // select the cluster to track
+        CloudPtr temp_cloud (new Cloud);
+        extractSegmentCluster (target_cloud, cluster_indices, 0, *temp_cloud);
+        Eigen::Vector4f c;
+        pcl::compute3DCentroid<RefPointType> (*temp_cloud, c);
+        int segment_index = 0;
+        double segment_distance = c[0] * c[0] + c[1] * c[1];
+        for (size_t i = 1; i < cluster_indices.size (); i++)
         {
-          // select the cluster to track
-          CloudPtr temp_cloud (new Cloud);
-          extractSegmentCluster (target_cloud, cluster_indices, 0, *temp_cloud);
-          Eigen::Vector4f c;
+          temp_cloud.reset (new Cloud);
+          extractSegmentCluster (target_cloud, cluster_indices, i, *temp_cloud);
           pcl::compute3DCentroid<RefPointType> (*temp_cloud, c);
-          int segment_index = 0;
-          double segment_distance = c[0] * c[0] + c[1] * c[1];
-          for (size_t i = 1; i < cluster_indices.size (); i++)
+          double distance = c[0] * c[0] + c[1] * c[1];
+          if (distance < segment_distance)
           {
-            temp_cloud.reset (new Cloud);
-            extractSegmentCluster (target_cloud, cluster_indices, i, *temp_cloud);
-            pcl::compute3DCentroid<RefPointType> (*temp_cloud, c);
-            double distance = c[0] * c[0] + c[1] * c[1];
-            if (distance < segment_distance)
-            {
-              segment_index = i;
-              segment_distance = distance;
-            }
+            segment_index = i;
+            segment_distance = distance;
           }
-
-          segmented_cloud_.reset (new Cloud);
-          extractSegmentCluster (target_cloud, cluster_indices, segment_index, *segmented_cloud_);
-          //pcl::PointCloud<pcl::Normal>::Ptr normals (new pcl::PointCloud<pcl::Normal>);
-          //normalEstimation (segmented_cloud_, *normals);
-          RefCloudPtr ref_cloud (new RefCloud);
-          //addNormalToCloud (segmented_cloud_, normals, *ref_cloud);
-          ref_cloud = segmented_cloud_;
-          RefCloudPtr nonzero_ref (new RefCloud);
-          removeZeroPoints (ref_cloud, *nonzero_ref);
-
-          std::cout << "ref_cloud: "
-              << " points: " << ref_cloud->points.size()
-              << " wh:" << ref_cloud->width << "x" << ref_cloud->height
-              << " is_dense: " << (ref_cloud->is_dense ? "Yes" : "No")
-              << std::endl;
-          std::cout << "nonzero: "
-              << " points: " << nonzero_ref->points.size()
-              << " wh:" << nonzero_ref->width << "x" << nonzero_ref->height
-              << " is_dense: " << (nonzero_ref->is_dense ? "Yes" : "No")
-              << std::endl;
-
-          if (save_reference_) {
-            PCL_INFO (("saving ref cloud: " + reference_filename_ + "\n").c_str());
-            pcl::io::savePCDFileASCII(reference_filename_, *nonzero_ref);
-          }
-
-          trackCloud(nonzero_ref);
         }
-        else
-        {
-          PCL_WARN("euclidean segmentation failed\n");
+
+        segmented_cloud_.reset (new Cloud);
+        extractSegmentCluster (target_cloud, cluster_indices, segment_index, *segmented_cloud_);
+        //pcl::PointCloud<pcl::Normal>::Ptr normals (new pcl::PointCloud<pcl::Normal>);
+        //normalEstimation (segmented_cloud_, *normals);
+        RefCloudPtr ref_cloud (new RefCloud);
+        //addNormalToCloud (segmented_cloud_, normals, *ref_cloud);
+        ref_cloud = segmented_cloud_;
+        RefCloudPtr nonzero_ref (new RefCloud);
+        removeZeroPoints (ref_cloud, *nonzero_ref);
+
+        std::cout << "ref_cloud: "
+            << " points: " << ref_cloud->points.size()
+            << " wh:" << ref_cloud->width << "x" << ref_cloud->height
+            << " is_dense: " << (ref_cloud->is_dense ? "Yes" : "No")
+            << std::endl;
+        std::cout << "nonzero: "
+            << " points: " << nonzero_ref->points.size()
+            << " wh:" << nonzero_ref->width << "x" << nonzero_ref->height
+            << " is_dense: " << (nonzero_ref->is_dense ? "Yes" : "No")
+            << std::endl;
+
+        if (save_reference_) {
+          PCL_INFO (("saving ref cloud: " + reference_filename_ + "\n").c_str());
+          pcl::io::savePCDFileASCII(reference_filename_, *nonzero_ref);
         }
+
+        trackCloud(nonzero_ref);
       }
     }
 
@@ -898,14 +869,25 @@ class OpenNISegmentTracking
     void findCloud(RefCloudPtr find_cloud, RefCloudPtr out_cloud)
     {
       PCL_INFO ("Searching for cloud\n");
+
+      // Segment out cloud to search in
+      CloudPtr segment_cloud;
+      segmentTargetCloud(segment_cloud);
+      if (segment_cloud == NULL)
+      {
+        PCL_WARN("findCloud: euclidean segmentation failed\n");
+        return;
+      }
+
       // Convert target cloud, current view from openni
       // Convert the cloud we want to find.
+      // (We need PointXYZ but openni tracking is using PointXYZRGBA)
       pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
       pcl::PointCloud<pcl::PointXYZ>::Ptr object_template (new pcl::PointCloud<pcl::PointXYZ>);
-      copyPointCloud (cloud_pass_, cloud);
+      copyPointCloud (segment_cloud, cloud);
       copyPointCloud (find_cloud, object_template);
-      pcl::io::savePCDFileASCII("input_cloud.pcd", *cloud);
-      pcl::io::savePCDFileASCII("object_template.pcd", *object_template);
+      pcl::io::savePCDFileASCII("find_input_cloud.pcd", *cloud);
+      pcl::io::savePCDFileASCII("find_object_template.pcd", *object_template);
 
       // Preprocess the cloud by...
       // ...removing distant points
@@ -918,15 +900,15 @@ class OpenNISegmentTracking
 //      pass.filter (*cloud);
 
       // ... and downsampling the point cloud
-      PCL_INFO ("... and downsampling the point cloud\n");
-      const float voxel_grid_size = 0.005f;
-      pcl::VoxelGrid<pcl::PointXYZ> vox_grid;
-      vox_grid.setInputCloud (cloud);
-      vox_grid.setLeafSize (voxel_grid_size, voxel_grid_size, voxel_grid_size);
-      //vox_grid.filter (*cloud); // Please see this http://www.pcl-developers.org/Possible-problem-in-new-VoxelGrid-implementation-from-PCL-1-5-0-td5490361.html
-      pcl::PointCloud<pcl::PointXYZ>::Ptr tempCloud (new pcl::PointCloud<pcl::PointXYZ>);
-      vox_grid.filter (*tempCloud);
-      cloud = tempCloud;
+//      PCL_INFO ("... and downsampling the point cloud\n");
+//      const float voxel_grid_size = 0.005f;
+//      pcl::VoxelGrid<pcl::PointXYZ> vox_grid;
+//      vox_grid.setInputCloud (cloud);
+//      vox_grid.setLeafSize (voxel_grid_size, voxel_grid_size, voxel_grid_size);
+//      //vox_grid.filter (*cloud); // Please see this http://www.pcl-developers.org/Possible-problem-in-new-VoxelGrid-implementation-from-PCL-1-5-0-td5490361.html
+//      pcl::PointCloud<pcl::PointXYZ>::Ptr tempCloud (new pcl::PointCloud<pcl::PointXYZ>);
+//      vox_grid.filter (*tempCloud);
+//      cloud = tempCloud;
 
       // Assign to the target FeatureCloud
       FeatureCloud target_cloud;
