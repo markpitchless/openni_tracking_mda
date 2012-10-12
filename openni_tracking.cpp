@@ -140,7 +140,7 @@ class ClusterSegmentor
       result.is_dense = true;
     }
 
-    Cloud input_;
+    CloudConstPtr input_;
 };
 
 //============================================================================
@@ -555,22 +555,9 @@ class OpenNISegmentTracking
     void segmentClusters(CloudPtr &target_cloud, std::vector<CloudPtr> &results)
     {
       PCL_INFO("segmenting clusters...\n");
-
-      std::vector<pcl::PointIndices> cluster_indices;
-      euclideanSegment (target_cloud, cluster_indices);
-      if (cluster_indices.size () == 0)
-        return;
-
-      CloudPtr temp_cloud;
-      for (size_t i = 0; i < cluster_indices.size (); i++)
-      {
-        temp_cloud.reset (new Cloud);
-        extractSegmentCluster (target_cloud, cluster_indices, i, *temp_cloud);
-        results.push_back(temp_cloud);
-        std::stringstream filename;
-        filename << "segment_cluster_" << i << ".pcd";
-        pcl::io::savePCDFileASCII(filename.str(), *temp_cloud);
-      }
+      ClusterSegmentor<PointType> cluster_segmentor;
+      cluster_segmentor.setInputCloud(target_cloud);
+      cluster_segmentor.extract(results);
     }
 
     void findNearestCluster(CloudPtr &target_cloud, CloudPtr &result)
