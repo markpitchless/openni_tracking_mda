@@ -114,6 +114,24 @@ class ClusterSegmentor
       }
     }
 
+    void
+    extractByDistance (std::vector<CloudPtr> &results)
+    {
+      extract (results);
+      std::sort (results.begin(), results.end(), ClusterSegmentor::byDistance);
+    }
+
+    static bool
+    byDistance (const CloudPtr &a, const CloudPtr &b)
+    {
+      Eigen::Vector4f ca, cb;
+      pcl::compute3DCentroid<PointType> (*a, ca);
+      pcl::compute3DCentroid<PointType> (*b, cb);
+      double da = ca[0] * ca[0] + ca[1] * ca[1];
+      double db = cb[0] * cb[0] + cb[1] * cb[1];
+      return (da < db);
+    }
+
   protected:
     virtual void
     euclideanSegment (std::vector<pcl::PointIndices> &cluster_indices)
@@ -539,26 +557,16 @@ class OpenNISegmentTracking
     void findNearestCluster(CloudPtr &result)
     {
       std::vector<CloudPtr> clusters;
-      segmentClusters(clusters);
-
-      PCL_INFO("find nearest cluster...\n");
-      Eigen::Vector4f c;
-      double segment_distance = 100000.0; // dummy val to start loop
-      for (size_t i = 0; i < clusters.size (); ++i)
-      {
-        CloudPtr cluster = clusters[i];
-        pcl::compute3DCentroid<PointType> (*cluster, c);
-        double distance = c[0] * c[0] + c[1] * c[1];
-        if (distance < segment_distance)
-        {
-          segment_distance = distance;
-          result = cluster;
-        }
-      }
+      ClusterSegmentor<PointType> cluster_segmentor;
+      cluster_segmentor.setInputCloud(cloud_pass_);
+      cluster_segmentor.extractByDistance(clusters);
+      if (clusters.size() > 0)
+        result = clusters[0];
     }
 
     void segment ()
     {
+      // Find the nearest cluster and track it
       // If this fails we get an empty ref_cloud
       CloudPtr ref_cloud (new Cloud);
       findNearestCluster(ref_cloud);
