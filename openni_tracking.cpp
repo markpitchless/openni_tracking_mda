@@ -91,7 +91,7 @@ class ClusterSegmentor
       PCL_INFO("segmenting clusters...\n");
 
       std::vector<pcl::PointIndices> cluster_indices;
-      euclideanSegment (getInputCloud(), cluster_indices);
+      euclideanSegment (cluster_indices);
       if (cluster_indices.size () == 0)
         return;
 
@@ -99,7 +99,7 @@ class ClusterSegmentor
       for (size_t i = 0; i < cluster_indices.size (); i++)
       {
         temp_cloud.reset (new Cloud);
-        extractSegmentCluster (getInputCloud(), cluster_indices, i, *temp_cloud);
+        extractSegmentCluster (cluster_indices, i, *temp_cloud);
         results.push_back(temp_cloud);
 //        std::stringstream filename;
 //        filename << "segment_cluster_" << i << ".pcd";
@@ -110,7 +110,7 @@ class ClusterSegmentor
   protected:
 
     virtual void
-    euclideanSegment (const CloudConstPtr &cloud, std::vector<pcl::PointIndices> &cluster_indices)
+    euclideanSegment (std::vector<pcl::PointIndices> &cluster_indices)
     {
       pcl::EuclideanClusterExtraction<PointType> ec;
       KdTreePtr tree (new KdTree ());
@@ -119,12 +119,12 @@ class ClusterSegmentor
       ec.setMinClusterSize (50);
       ec.setMaxClusterSize (25000);
       ec.setSearchMethod (tree);
-      ec.setInputCloud (cloud);
+      ec.setInputCloud (getInputCloud());
       ec.extract (cluster_indices);
     }
 
     void
-    extractSegmentCluster (const CloudConstPtr &cloud,
+    extractSegmentCluster (
         const std::vector<pcl::PointIndices> cluster_indices,
         const int segment_index,
         Cloud &result)
@@ -132,7 +132,7 @@ class ClusterSegmentor
       pcl::PointIndices segmented_indices = cluster_indices[segment_index];
       for (size_t i = 0; i < segmented_indices.indices.size (); i++)
       {
-        PointType point = cloud->points[segmented_indices.indices[i]];
+        PointType point = getInputCloud()->points[segmented_indices.indices[i]];
         result.points.push_back (point);
       }
       result.width = result.points.size ();
