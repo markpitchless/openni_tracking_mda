@@ -50,6 +50,100 @@
 // Local libs
 #include "template_alignment.h"
 
+template<typename PointType>
+class ClusterSegmentor
+{
+  protected:
+    typedef pcl::PointCloud<PointType> Cloud;
+    typedef typename pcl::PointCloud<PointType>::Ptr CloudPtr;
+    typedef typename pcl::PointCloud<PointType>::ConstPtr CloudConstPtr;
+    typedef typename pcl::search::KdTree<PointType> KdTree;
+    typedef typename KdTree::Ptr KdTreePtr;
+
+  public:
+    /** \brief Empty constructor.
+      */
+    ClusterSegmentor() {}
+
+    /** \brief Destructor.
+      */
+    virtual
+    ~ClusterSegmentor()
+    {
+      input_.reset();
+    }
+
+    /** \brief Provide a pointer to the input dataset
+      * \param cloud the const boost shared pointer to a PointCloud message
+      */
+    virtual inline void
+    setInputCloud (const CloudConstPtr &cloud) { input_ = cloud; }
+
+    /** \brief Get a pointer to the input point cloud dataset. */
+    inline CloudConstPtr const
+    getInputCloud () { return (input_); }
+
+    /**
+     * \breif Segment the target_cloud into clusters, pushing each cluster onto the results vector.
+     */
+    void extract (std::vector<CloudPtr> &results)
+    {
+      PCL_INFO("segmenting clusters...\n");
+
+      std::vector<pcl::PointIndices> cluster_indices;
+      euclideanSegment (getInputCloud(), cluster_indices);
+      if (cluster_indices.size () == 0)
+        return;
+
+      CloudPtr temp_cloud;
+      for (size_t i = 0; i < cluster_indices.size (); i++)
+      {
+        temp_cloud.reset (new Cloud);
+        extractSegmentCluster (getInputCloud(), cluster_indices, i, *temp_cloud);
+        results.push_back(temp_cloud);
+//        std::stringstream filename;
+//        filename << "segment_cluster_" << i << ".pcd";
+//        pcl::io::savePCDFileASCII(filename.str(), *temp_cloud);
+      }
+    }
+
+  protected:
+
+    virtual void
+    euclideanSegment (const CloudConstPtr &cloud, std::vector<pcl::PointIndices> &cluster_indices)
+    {
+      pcl::EuclideanClusterExtraction<PointType> ec;
+      KdTreePtr tree (new KdTree ());
+
+      ec.setClusterTolerance (0.05); // 2cm
+      ec.setMinClusterSize (50);
+      ec.setMaxClusterSize (25000);
+      ec.setSearchMethod (tree);
+      ec.setInputCloud (cloud);
+      ec.extract (cluster_indices);
+    }
+
+    void
+    extractSegmentCluster (const CloudConstPtr &cloud,
+        const std::vector<pcl::PointIndices> cluster_indices,
+        const int segment_index,
+        Cloud &result)
+    {
+      pcl::PointIndices segmented_indices = cluster_indices[segment_index];
+      for (size_t i = 0; i < segmented_indices.indices.size (); i++)
+      {
+        PointType point = cloud->points[segmented_indices.indices[i]];
+        result.points.push_back (point);
+      }
+      result.width = result.points.size ();
+      result.height = 1;
+      result.is_dense = true;
+    }
+
+    Cloud input_;
+};
+
+//============================================================================
 
 #define FPS_CALC_BEGIN                          \
     static double duration = 0;                 \
