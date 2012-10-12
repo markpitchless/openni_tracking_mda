@@ -522,18 +522,26 @@ class OpenNISegmentTracking
     /**
      * Segment the target_cloud into clusters, pushing each cluster onto the results vector.
      */
-    void segmentClusters(CloudPtr &target_cloud, std::vector<CloudPtr> &results)
+    void segmentClusters(std::vector<CloudPtr> &results)
     {
       PCL_INFO("segmenting clusters...\n");
+      CloudPtr target_cloud;
+      segmentTargetCloud(target_cloud);
+      if (target_cloud == NULL)
+      {
+        PCL_WARN("euclidean segmentation failed\n");
+        return;
+      }
+
       ClusterSegmentor<PointType> cluster_segmentor;
       cluster_segmentor.setInputCloud(target_cloud);
       cluster_segmentor.extract(results);
     }
 
-    void findNearestCluster(CloudPtr &target_cloud, CloudPtr &result)
+    void findNearestCluster(CloudPtr &result)
     {
       std::vector<CloudPtr> clusters;
-      segmentClusters(target_cloud, clusters);
+      segmentClusters(clusters);
 
       PCL_INFO("find nearest cluster...\n");
       Eigen::Vector4f c;
@@ -553,17 +561,9 @@ class OpenNISegmentTracking
 
     void segment ()
     {
-      CloudPtr target_cloud;
-      segmentTargetCloud(target_cloud);
-      if (target_cloud == NULL)
-      {
-        PCL_WARN("euclidean segmentation failed\n");
-        return;
-      }
-
       // If this fails we get an empty ref_cloud
       CloudPtr ref_cloud (new Cloud);
-      findNearestCluster(target_cloud, ref_cloud);
+      findNearestCluster(ref_cloud);
 
       std::cout << "ref_cloud: "
           << " points: " << ref_cloud->points.size()
@@ -638,18 +638,9 @@ class OpenNISegmentTracking
     {
       PCL_INFO ("Searching for cloud\n");
 
-      // Segment out cloud to search in
-      CloudPtr segment_cloud;
-      segmentTargetCloud(segment_cloud);
-      if (segment_cloud == NULL)
-      {
-        PCL_WARN("findCloud: euclidean segmentation failed\n");
-        return;
-      }
-
       // Find all the clusters. We then try to match the find cloud against each cluster.
       std::vector<CloudPtr> clusters;
-      segmentClusters(segment_cloud, clusters);
+      segmentClusters(clusters);
 
       // Convert the cloud we want to find.
       // (We need PointXYZ but openni tracking is using PointXYZRGBA)
