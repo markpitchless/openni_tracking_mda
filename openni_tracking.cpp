@@ -392,21 +392,6 @@ class OpenNISegmentTracking
       FPS_CALC_END("filterPassThrough");
     }
 
-    void euclideanSegment (const CloudConstPtr &cloud, std::vector<pcl::PointIndices> &cluster_indices)
-    {
-      FPS_CALC_BEGIN;
-      pcl::EuclideanClusterExtraction<PointType> ec;
-      KdTreePtr tree (new KdTree ());
-
-      ec.setClusterTolerance (0.05); // 2cm
-      ec.setMinClusterSize (50);
-      ec.setMaxClusterSize (25000);
-      ec.setSearchMethod (tree);
-      ec.setInputCloud (cloud);
-      ec.extract (cluster_indices);
-      FPS_CALC_END("euclideanSegmentation");
-    }
-
     void gridSample (const CloudConstPtr &cloud, Cloud &result, double leaf_size = 0.01)
     {
       FPS_CALC_BEGIN;
@@ -494,21 +479,6 @@ class OpenNISegmentTracking
         extract_positive.setIndices (inliers_polygon);
         extract_positive.filter (result);
       }
-    }
-
-    void extractSegmentCluster (const CloudConstPtr &cloud,
-        const std::vector<pcl::PointIndices> cluster_indices, const int segment_index,
-        Cloud &result)
-    {
-      pcl::PointIndices segmented_indices = cluster_indices[segment_index];
-      for (size_t i = 0; i < segmented_indices.indices.size (); i++)
-      {
-        PointType point = cloud->points[segmented_indices.indices[i]];
-        result.points.push_back (point);
-      }
-      result.width = result.points.size ();
-      result.height = 1;
-      result.is_dense = true;
     }
 
     /**
