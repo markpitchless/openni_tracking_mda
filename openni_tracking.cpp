@@ -92,15 +92,11 @@ class OpenNISegmentTracking
     OpenNISegmentTracking (const std::string& device_id, int thread_nr,
         double downsampling_grid_size, bool use_convex_hull, bool visualize_non_downsample,
         bool visualize_particles, bool use_fixed) :
-        viewer_ ("PCL OpenNI Tracking Viewer"), device_id_ (device_id), new_cloud_ (false), ne_ (
-            thread_nr), counter_ (0), use_convex_hull_ (use_convex_hull), visualize_non_downsample_ (
+        viewer_ ("PCL OpenNI Tracking Viewer"), device_id_ (device_id), new_cloud_ (false),
+            counter_ (0), use_convex_hull_ (use_convex_hull), visualize_non_downsample_ (
             visualize_non_downsample), visualize_particles_ (visualize_particles), downsampling_grid_size_ (
             downsampling_grid_size)
     {
-      KdTreePtr tree (new KdTree (false));
-      ne_.setSearchMethod (tree);
-      ne_.setRadiusSearch (0.03);
-
       std::vector<double> default_step_covariance = std::vector<double> (6, 0.015 * 0.015);
       default_step_covariance[3] *= 40.0;
       default_step_covariance[4] *= 40.0;
@@ -378,14 +374,6 @@ class OpenNISegmentTracking
       FPS_CALC_END("convexHull");
     }
 
-    void normalEstimation (const CloudConstPtr &cloud, pcl::PointCloud<pcl::Normal> &result)
-    {
-      FPS_CALC_BEGIN;
-      ne_.setInputCloud (cloud);
-      ne_.compute (result);
-      FPS_CALC_END("normalEstimation");
-    }
-
     void tracking (const RefCloudConstPtr &cloud)
     {
       double start = pcl::getTime ();
@@ -397,28 +385,7 @@ class OpenNISegmentTracking
       tracking_time_ = end - start;
     }
 
-    void addNormalToCloud (const CloudConstPtr &cloud,
-        const pcl::PointCloud<pcl::Normal>::ConstPtr &normals, RefCloud &result)
-    {
-      result.width = cloud->width;
-      result.height = cloud->height;
-      result.is_dense = cloud->is_dense;
-      for (size_t i = 0; i < cloud->points.size (); i++)
-      {
-        PointType point;
-        point.x = cloud->points[i].x;
-        point.y = cloud->points[i].y;
-        point.z = cloud->points[i].z;
-        point.rgba = cloud->points[i].rgba;
-        // point.normal[0] = normals->points[i].normal[0];
-        // point.normal[1] = normals->points[i].normal[1];
-        // point.normal[2] = normals->points[i].normal[2];
-        result.points.push_back (point);
-      }
-    }
-
-    void extractNonPlanePoints (const CloudConstPtr &cloud, const CloudConstPtr &cloud_hull,
-        Cloud &result)
+    void extractNonPlanePoints (const CloudConstPtr &cloud, const CloudConstPtr &cloud_hull, Cloud &result)
     {
       pcl::ExtractPolygonalPrismData<PointType> polygon_extract;
       pcl::PointIndices::Ptr inliers_polygon (new pcl::PointIndices ());
@@ -433,21 +400,6 @@ class OpenNISegmentTracking
         extract_positive.setIndices (inliers_polygon);
         extract_positive.filter (result);
       }
-    }
-
-    void removeZeroPoints (const CloudConstPtr &cloud, Cloud &result)
-    {
-      for (size_t i = 0; i < cloud->points.size (); i++)
-      {
-        PointType point = cloud->points[i];
-        if (!(fabs (point.x) < 0.01 && fabs (point.y) < 0.01 && fabs (point.z) < 0.01)
-            && !pcl_isnan(point.x) && !pcl_isnan(point.y) && !pcl_isnan(point.z)) result.points.push_back (
-            point);
-      }
-
-      result.width = result.points.size ();
-      result.height = 1;
-      result.is_dense = true;
     }
 
     void extractSegmentCluster (const CloudConstPtr &cloud,
@@ -781,7 +733,6 @@ class OpenNISegmentTracking
     std::string device_id_;
     boost::mutex mtx_;
     bool new_cloud_;
-    pcl::NormalEstimationOMP<PointType, pcl::Normal> ne_; // to store threadpool
     boost::shared_ptr<ParticleFilter> tracker_;
     int counter_;
     bool use_convex_hull_;
