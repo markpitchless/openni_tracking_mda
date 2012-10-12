@@ -77,21 +77,17 @@ template<typename PointType>
 class OpenNISegmentTracking
 {
   public:
-    //typedef pcl::PointXYZRGBANormal RefPointType;
-    typedef pcl::PointXYZRGBA RefPointType;
-    //typedef pcl::PointXYZ RefPointType;
     typedef ParticleXYZRPY ParticleT;
-
     typedef pcl::PointCloud<PointType> Cloud;
-    typedef pcl::PointCloud<RefPointType> RefCloud;
+    typedef pcl::PointCloud<PointType> RefCloud;
     typedef typename RefCloud::Ptr RefCloudPtr;
     typedef typename RefCloud::ConstPtr RefCloudConstPtr;
     typedef typename Cloud::Ptr CloudPtr;
     typedef typename Cloud::ConstPtr CloudConstPtr;
-    //typedef KLDAdaptiveParticleFilterTracker<RefPointType, ParticleT> ParticleFilter;
-    //typedef KLDAdaptiveParticleFilterOMPTracker<RefPointType, ParticleT> ParticleFilter;
-    //typedef ParticleFilterOMPTracker<RefPointType, ParticleT> ParticleFilter;
-    typedef ParticleFilterTracker<RefPointType, ParticleT> ParticleFilter;
+    //typedef KLDAdaptiveParticleFilterTracker<PointType, ParticleT> ParticleFilter;
+    //typedef KLDAdaptiveParticleFilterOMPTracker<PointType, ParticleT> ParticleFilter;
+    //typedef ParticleFilterOMPTracker<PointType, ParticleT> ParticleFilter;
+    typedef ParticleFilterTracker<PointType, ParticleT> ParticleFilter;
     typedef typename ParticleFilter::CoherencePtr CoherencePtr;
     typedef typename pcl::search::KdTree<PointType> KdTree;
     typedef typename KdTree::Ptr KdTreePtr;
@@ -116,14 +112,14 @@ class OpenNISegmentTracking
       std::vector<double> default_initial_mean = std::vector<double> (6, 0.0);
       if (use_fixed)
       {
-        boost::shared_ptr<ParticleFilterOMPTracker<RefPointType, ParticleT> > tracker (
-            new ParticleFilterOMPTracker<RefPointType, ParticleT> (thread_nr));
+        boost::shared_ptr<ParticleFilterOMPTracker<PointType, ParticleT> > tracker (
+            new ParticleFilterOMPTracker<PointType, ParticleT> (thread_nr));
         tracker_ = tracker;
       }
       else
       {
-        boost::shared_ptr<KLDAdaptiveParticleFilterOMPTracker<RefPointType, ParticleT> > tracker (
-            new KLDAdaptiveParticleFilterOMPTracker<RefPointType, ParticleT> (thread_nr));
+        boost::shared_ptr<KLDAdaptiveParticleFilterOMPTracker<PointType, ParticleT> > tracker (
+            new KLDAdaptiveParticleFilterOMPTracker<PointType, ParticleT> (thread_nr));
         tracker->setMaximumParticleNum (500);
         tracker->setDelta (0.99);
         tracker->setEpsilon (0.2);
@@ -148,25 +144,24 @@ class OpenNISegmentTracking
       tracker_->setResampleLikelihoodThr (0.00);
       tracker_->setUseNormal (false);
       // setup coherences
-      ApproxNearestPairPointCloudCoherence<RefPointType>::Ptr coherence =
-          ApproxNearestPairPointCloudCoherence<RefPointType>::Ptr (
-              new ApproxNearestPairPointCloudCoherence<RefPointType> ());
-      // NearestPairPointCloudCoherence<RefPointType>::Ptr coherence = NearestPairPointCloudCoherence<RefPointType>::Ptr
-      //   (new NearestPairPointCloudCoherence<RefPointType> ());
+      typename ApproxNearestPairPointCloudCoherence<PointType>::Ptr coherence =
+          typename ApproxNearestPairPointCloudCoherence<PointType>::Ptr ( new ApproxNearestPairPointCloudCoherence<PointType> () );
+      // NearestPairPointCloudCoherence<PointType>::Ptr coherence = NearestPairPointCloudCoherence<PointType>::Ptr
+      //   (new NearestPairPointCloudCoherence<PointType> ());
 
-      boost::shared_ptr<DistanceCoherence<RefPointType> > distance_coherence = boost::shared_ptr<
-          DistanceCoherence<RefPointType> > (new DistanceCoherence<RefPointType> ());
+      boost::shared_ptr<DistanceCoherence<PointType> > distance_coherence = boost::shared_ptr<
+          DistanceCoherence<PointType> > (new DistanceCoherence<PointType> ());
       coherence->addPointCoherence (distance_coherence);
 
-      boost::shared_ptr<HSVColorCoherence<RefPointType> > color_coherence = boost::shared_ptr<
-          HSVColorCoherence<RefPointType> > (new HSVColorCoherence<RefPointType> ());
+      boost::shared_ptr<HSVColorCoherence<PointType> > color_coherence = boost::shared_ptr<
+          HSVColorCoherence<PointType> > (new HSVColorCoherence<PointType> ());
       color_coherence->setWeight (0.1);
       coherence->addPointCoherence (color_coherence);
 
-      //boost::shared_ptr<pcl::search::KdTree<RefPointType> > search (new pcl::search::KdTree<RefPointType> (false));
-      boost::shared_ptr<pcl::search::Octree<RefPointType> > search (
-          new pcl::search::Octree<RefPointType> (0.01));
-      //boost::shared_ptr<pcl::search::OrganizedNeighbor<RefPointType> > search (new pcl::search::OrganizedNeighbor<RefPointType>);
+      //boost::shared_ptr<pcl::search::KdTree<PointType> > search (new pcl::search::KdTree<PointType> (false));
+      boost::shared_ptr<pcl::search::Octree<PointType> > search (
+          new pcl::search::Octree<PointType> (0.01));
+      //boost::shared_ptr<pcl::search::OrganizedNeighbor<PointType> > search (new pcl::search::OrganizedNeighbor<PointType>);
       coherence->setSearchMethod (search);
       coherence->setMaximumDistance (0.01);
       tracker_->setCloudCoherence (coherence);
@@ -179,7 +174,7 @@ class OpenNISegmentTracking
 
     bool drawParticles (pcl::visualization::PCLVisualizer& viz)
     {
-      ParticleFilter::PointCloudStatePtr particles = tracker_->getParticles ();
+      typename ParticleFilter::PointCloudStatePtr particles = tracker_->getParticles ();
       if (particles)
       {
         if (visualize_particles_)
@@ -220,12 +215,12 @@ class OpenNISegmentTracking
       transformation.translation () += Eigen::Vector3f (0.0, 0.0, -0.005);
       RefCloudPtr result_cloud (new RefCloud ());
 
-      if (!visualize_non_downsample_) pcl::transformPointCloud<RefPointType> (
+      if (!visualize_non_downsample_) pcl::transformPointCloud<PointType> (
           *(tracker_->getReferenceCloud ()), *result_cloud, transformation);
-      else pcl::transformPointCloud<RefPointType> (*reference_, *result_cloud, transformation);
+      else pcl::transformPointCloud<PointType> (*reference_, *result_cloud, transformation);
 
       {
-        pcl::visualization::PointCloudColorHandlerCustom<RefPointType> red_color (result_cloud, 0,
+        pcl::visualization::PointCloudColorHandlerCustom<PointType> red_color (result_cloud, 0,
             0, 255);
         if (!viz.updatePointCloud (result_cloud, red_color, "resultcloud")) viz.addPointCloud (
             result_cloud, red_color, "resultcloud");
@@ -425,7 +420,7 @@ class OpenNISegmentTracking
       result.is_dense = cloud->is_dense;
       for (size_t i = 0; i < cloud->points.size (); i++)
       {
-        RefPointType point;
+        PointType point;
         point.x = cloud->points[i].x;
         point.y = cloud->points[i].y;
         point.z = cloud->points[i].z;
@@ -558,7 +553,7 @@ class OpenNISegmentTracking
       for (size_t i = 0; i < clusters.size (); ++i)
       {
         CloudPtr cluster = clusters[i];
-        pcl::compute3DCentroid<RefPointType> (*cluster, c);
+        pcl::compute3DCentroid<PointType> (*cluster, c);
         double distance = c[0] * c[0] + c[1] * c[1];
         if (distance < segment_distance)
         {
@@ -602,11 +597,11 @@ class OpenNISegmentTracking
 
         Eigen::Vector4f c;
         RefCloudPtr transed_ref (new RefCloud);
-        pcl::compute3DCentroid<RefPointType> (*ref_cloud, c);
+        pcl::compute3DCentroid<PointType> (*ref_cloud, c);
         Eigen::Affine3f trans = Eigen::Affine3f::Identity ();
         trans.translation () = Eigen::Vector3f (c[0], c[1], c[2]);
-        //pcl::transformPointCloudWithNormals<RefPointType> (*ref_cloud, *transed_ref, trans.inverse());
-        pcl::transformPointCloud<RefPointType> (*ref_cloud, *transed_ref, trans.inverse ());
+        //pcl::transformPointCloudWithNormals<PointType> (*ref_cloud, *transed_ref, trans.inverse());
+        pcl::transformPointCloud<PointType> (*ref_cloud, *transed_ref, trans.inverse ());
         CloudPtr transed_ref_downsampled (new Cloud);
         gridSample (transed_ref, *transed_ref_downsampled, downsampling_grid_size_);
         tracker_->setReferenceCloud (transed_ref_downsampled);
@@ -621,7 +616,7 @@ class OpenNISegmentTracking
       PCL_INFO (("loading ref cloud:" + filename + "\n").c_str());
       RefCloudPtr ref_cloud (new RefCloud);
       RefCloudPtr load_cloud (new RefCloud);
-      if ( pcl::io::loadPCDFile<RefPointType>(filename, *load_cloud) == -1) {
+      if ( pcl::io::loadPCDFile<PointType>(filename, *load_cloud) == -1) {
         std::string msg = "Failed to read file: " + filename + "\n";
         PCL_ERROR(msg.c_str());
         return;
