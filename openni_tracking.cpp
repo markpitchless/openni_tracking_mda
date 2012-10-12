@@ -544,32 +544,17 @@ class OpenNISegmentTracking
       tracking_time_ = end - start;
     }
 
-    /**
-     * Segment the target_cloud into clusters, pushing each cluster onto the results vector.
-     */
-    void segmentClusters(std::vector<CloudPtr> &results)
-    {
-      ClusterSegmentor<PointType> cluster_segmentor;
-      cluster_segmentor.setInputCloud(cloud_pass_);
-      cluster_segmentor.extract(results);
-    }
-
-    void findNearestCluster(CloudPtr &result)
-    {
-      std::vector<CloudPtr> clusters;
-      ClusterSegmentor<PointType> cluster_segmentor;
-      cluster_segmentor.setInputCloud(cloud_pass_);
-      cluster_segmentor.extractByDistance(clusters);
-      if (clusters.size() > 0)
-        result = clusters[0];
-    }
-
     void segment ()
     {
       // Find the nearest cluster and track it
       // If this fails we get an empty ref_cloud
       CloudPtr ref_cloud (new Cloud);
-      findNearestCluster(ref_cloud);
+      std::vector<CloudPtr> clusters;
+      ClusterSegmentor<PointType> cluster_segmentor;
+      cluster_segmentor.setInputCloud(cloud_pass_);
+      cluster_segmentor.extractByDistance(clusters);
+      if (clusters.size() > 0)
+        ref_cloud = clusters[0];
 
       std::cout << "ref_cloud: "
           << " points: " << ref_cloud->points.size()
@@ -646,7 +631,9 @@ class OpenNISegmentTracking
 
       // Find all the clusters. We then try to match the find cloud against each cluster.
       std::vector<CloudPtr> clusters;
-      segmentClusters(clusters);
+      ClusterSegmentor<PointType> cluster_segmentor;
+      cluster_segmentor.setInputCloud(cloud_pass_);
+      cluster_segmentor.extract(clusters);
 
       // Convert the cloud we want to find.
       // (We need PointXYZ but openni tracking is using PointXYZRGBA)
