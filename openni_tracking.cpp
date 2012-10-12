@@ -84,13 +84,11 @@ class OpenNISegmentTracking
     typedef typename RefCloud::ConstPtr RefCloudConstPtr;
     typedef typename Cloud::Ptr CloudPtr;
     typedef typename Cloud::ConstPtr CloudConstPtr;
-    //typedef KLDAdaptiveParticleFilterTracker<PointType, ParticleT> ParticleFilter;
-    //typedef KLDAdaptiveParticleFilterOMPTracker<PointType, ParticleT> ParticleFilter;
-    //typedef ParticleFilterOMPTracker<PointType, ParticleT> ParticleFilter;
     typedef ParticleFilterTracker<PointType, ParticleT> ParticleFilter;
     typedef typename ParticleFilter::CoherencePtr CoherencePtr;
     typedef typename pcl::search::KdTree<PointType> KdTree;
     typedef typename KdTree::Ptr KdTreePtr;
+
     OpenNISegmentTracking (const std::string& device_id, int thread_nr,
         double downsampling_grid_size, bool use_convex_hull, bool visualize_non_downsample,
         bool visualize_particles, bool use_fixed) :
@@ -143,11 +141,10 @@ class OpenNISegmentTracking
       tracker_->setParticleNum (400);
       tracker_->setResampleLikelihoodThr (0.00);
       tracker_->setUseNormal (false);
+
       // setup coherences
       typename ApproxNearestPairPointCloudCoherence<PointType>::Ptr coherence =
           typename ApproxNearestPairPointCloudCoherence<PointType>::Ptr ( new ApproxNearestPairPointCloudCoherence<PointType> () );
-      // NearestPairPointCloudCoherence<PointType>::Ptr coherence = NearestPairPointCloudCoherence<PointType>::Ptr
-      //   (new NearestPairPointCloudCoherence<PointType> ());
 
       boost::shared_ptr<DistanceCoherence<PointType> > distance_coherence = boost::shared_ptr<
           DistanceCoherence<PointType> > (new DistanceCoherence<PointType> ());
@@ -158,10 +155,8 @@ class OpenNISegmentTracking
       color_coherence->setWeight (0.1);
       coherence->addPointCoherence (color_coherence);
 
-      //boost::shared_ptr<pcl::search::KdTree<PointType> > search (new pcl::search::KdTree<PointType> (false));
       boost::shared_ptr<pcl::search::Octree<PointType> > search (
           new pcl::search::Octree<PointType> (0.01));
-      //boost::shared_ptr<pcl::search::OrganizedNeighbor<PointType> > search (new pcl::search::OrganizedNeighbor<PointType>);
       coherence->setSearchMethod (search);
       coherence->setMaximumDistance (0.01);
       tracker_->setCloudCoherence (coherence);
@@ -301,16 +296,13 @@ class OpenNISegmentTracking
       pcl::PassThrough<PointType> pass;
       pass.setFilterFieldName ("z");
       pass.setFilterLimits (0.0, 10.0);
-      //pass.setFilterLimits (0.0, 1.5);
-      //pass.setFilterLimits (0.0, 0.6);
       pass.setKeepOrganized (false);
       pass.setInputCloud (cloud);
       pass.filter (result);
       FPS_CALC_END("filterPassThrough");
     }
 
-    void euclideanSegment (const CloudConstPtr &cloud,
-        std::vector<pcl::PointIndices> &cluster_indices)
+    void euclideanSegment (const CloudConstPtr &cloud, std::vector<pcl::PointIndices> &cluster_indices)
     {
       FPS_CALC_BEGIN;
       pcl::EuclideanClusterExtraction<PointType> ec;
@@ -319,7 +311,6 @@ class OpenNISegmentTracking
       ec.setClusterTolerance (0.05); // 2cm
       ec.setMinClusterSize (50);
       ec.setMaxClusterSize (25000);
-      //ec.setMaxClusterSize (400);
       ec.setSearchMethod (tree);
       ec.setInputCloud (cloud);
       ec.extract (cluster_indices);
@@ -331,11 +322,9 @@ class OpenNISegmentTracking
       FPS_CALC_BEGIN;
       double start = pcl::getTime ();
       pcl::VoxelGrid<PointType> grid;
-      //pcl::ApproximateVoxelGrid<PointType> grid;
       grid.setLeafSize (leaf_size, leaf_size, leaf_size);
       grid.setInputCloud (cloud);
       grid.filter (result);
-      //result = *cloud;
       double end = pcl::getTime ();
       downsampling_time_ = end - start;
       FPS_CALC_END("gridSample");
@@ -345,12 +334,10 @@ class OpenNISegmentTracking
     {
       FPS_CALC_BEGIN;
       double start = pcl::getTime ();
-      //pcl::VoxelGrid<PointType> grid;
       pcl::ApproximateVoxelGrid<PointType> grid;
       grid.setLeafSize (leaf_size, leaf_size, leaf_size);
       grid.setInputCloud (cloud);
       grid.filter (result);
-      //result = *cloud;
       double end = pcl::getTime ();
       downsampling_time_ = end - start;
       FPS_CALC_END("gridSample");
@@ -371,8 +358,7 @@ class OpenNISegmentTracking
       FPS_CALC_END("planeSegmentation");
     }
 
-    void planeProjection (const CloudConstPtr &cloud, Cloud &result,
-        const pcl::ModelCoefficients::ConstPtr &coefficients)
+    void planeProjection (const CloudConstPtr &cloud, Cloud &result, const pcl::ModelCoefficients::ConstPtr &coefficients)
     {
       FPS_CALC_BEGIN;
       pcl::ProjectInliers<PointType> proj;
@@ -383,8 +369,7 @@ class OpenNISegmentTracking
       FPS_CALC_END("planeProjection");
     }
 
-    void convexHull (const CloudConstPtr &cloud, Cloud &result,
-        std::vector<pcl::Vertices> &hull_vertices)
+    void convexHull (const CloudConstPtr &cloud, Cloud &result, std::vector<pcl::Vertices> &hull_vertices)
     {
       FPS_CALC_BEGIN;
       pcl::ConvexHull<PointType> chull;
@@ -600,7 +585,6 @@ class OpenNISegmentTracking
         pcl::compute3DCentroid<PointType> (*ref_cloud, c);
         Eigen::Affine3f trans = Eigen::Affine3f::Identity ();
         trans.translation () = Eigen::Vector3f (c[0], c[1], c[2]);
-        //pcl::transformPointCloudWithNormals<PointType> (*ref_cloud, *transed_ref, trans.inverse());
         pcl::transformPointCloud<PointType> (*ref_cloud, *transed_ref, trans.inverse ());
         CloudPtr transed_ref_downsampled (new Cloud);
         gridSample (transed_ref, *transed_ref_downsampled, downsampling_grid_size_);
@@ -756,14 +740,6 @@ class OpenNISegmentTracking
       }
       else
       {
-        //normals_.reset (new pcl::PointCloud<pcl::Normal>);
-        //normalEstimation (cloud_pass_downsampled_, *normals_);
-        //RefCloudPtr tracking_cloud (new RefCloud ());
-        //addNormalToCloud (cloud_pass_downsampled_, normals_, *tracking_cloud);
-        //tracking_cloud = cloud_pass_downsampled_;
-
-        //*cloud_pass_downsampled_ = *cloud_pass_;
-        //cloud_pass_downsampled_ = cloud_pass_;
         gridSampleApprox (cloud_pass_, *cloud_pass_downsampled_, downsampling_grid_size_);
         tracking (cloud_pass_downsampled_);
       }
