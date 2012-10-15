@@ -77,9 +77,6 @@ class ClusterSegmentor
         temp_cloud.reset (new Cloud);
         extractSegmentCluster (cluster_indices, i, *temp_cloud);
         results.push_back(temp_cloud);
-        std::stringstream filename;
-        filename << "segment_cluster_" << i << ".pcd";
-        pcl::io::savePCDFileASCII(filename.str(), *temp_cloud);
       }
     }
 
@@ -96,8 +93,9 @@ class ClusterSegmentor
       Eigen::Vector4f ca, cb;
       pcl::compute3DCentroid<PointType> (*a, ca);
       pcl::compute3DCentroid<PointType> (*b, cb);
-      double da = ca[0] * ca[0] + ca[1] * ca[1];
-      double db = cb[0] * cb[0] + cb[1] * cb[1];
+      //double da = ca[0] * ca[0] + ca[1] * ca[1];
+      double da = ca[0] * ca[0] + ca[1] * ca[1] + ca[2] * ca[2];
+      double db = cb[0] * cb[0] + cb[1] * cb[1] + cb[2] * cb[2];
       return (da < db);
     }
 

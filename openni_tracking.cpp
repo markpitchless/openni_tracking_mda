@@ -346,6 +346,14 @@ class OpenNISegmentTracking
       ClusterSegmentor<PointType> cluster_segmentor;
       cluster_segmentor.setInputCloud(cloud_pass_);
       cluster_segmentor.extractByDistance(clusters);
+
+      for (size_t i = 0; i < clusters.size(); ++i)
+      {
+        std::stringstream fname;
+        fname << "segment_bydistance_" << i << ".pcd";
+        pcl::io::savePCDFileASCII(fname.str(), *(clusters[i]));
+      }
+
       if (clusters.size() > 0)
         ref_cloud = clusters[0];
 
